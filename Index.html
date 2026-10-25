@@ -1,0 +1,295 @@
+
+
+<!DOCTYPE html>
+
+<html lang="fr">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+<title>Whispering Woods</title>
+
+<style>
+
+*{box-sizing:border-box}
+
+body{margin:0;background:#07140e;color:#eaffdf;font-family:system-ui;text-align:center}
+
+h1{margin:12px;font-size:26px}
+
+p{margin:8px}
+
+canvas{display:block;width:100%;max-width:700px;margin:auto;touch-action:none}
+
+#game{background:#153b28}
+
+#status{padding:8px;color:#d7f5a6}
+
+.controls{display:grid;grid-template-columns:repeat(3,65px);gap:8px;justify-content:center;padding:10px}
+
+button{font-size:24px;background:#28573c;color:white;border:2px solid #a4cf8c;border-radius:14px;padding:10px;touch-action:none}
+
+#message{min-height:25px;color:#ffe9a4}
+
+</style>
+
+</head>
+
+<body>
+
+<h1>🌲 Whispering Woods 🌙</h1>
+
+<p>Récupère les 7 feux follets et découvre le sanctuaire !</p>
+
+<canvas id="game" width="600" height="420"></canvas>
+
+<div id="status">Feux follets : 0 / 7</div>
+
+<div class="controls">
+
+<span></span><button data-key="up">⬆️</button><span></span>
+
+<button data-key="left">⬅️</button><button data-key="down">⬇️</button><button data-key="right">➡️</button>
+
+</div>
+
+<div id="message">Explore la forêt, mais attention aux ombres !</div>
+
+<script>
+
+const canvas=document.getElementById("game");
+
+const ctx=canvas.getContext("2d");
+
+const status=document.getElementById("status");
+
+const message=document.getElementById("message");
+
+const keys={up:false,down:false,left:false,right:false};
+
+const player={x:300,y:210,r:10,speed:2.5};
+
+let count=0,won=false;
+
+let seed=12345;
+
+function random(){seed=(seed*16807)%2147483647;return seed/2147483647}
+
+const trees=[];
+
+for(let i=0;i<55;i++){
+
+ let x=20+random()*560,y=20+random()*380;
+
+ if(Math.hypot(x-300,y-210)>45)trees.push({x,y,r:10+random()*13});
+
+}
+
+let wisps=[
+
+{x:70,y:70},{x:510,y:60},{x:90,y:340},{x:480,y:330},
+
+{x:300,y:80},{x:210,y:290},{x:540,y:200}
+
+];
+
+const enemies=[
+
+{x:100,y:190,vx:1.0,vy:.7},
+
+{x:480,y:130,vx:-.8,vy:1.0},
+
+{x:350,y:350,vx:1.1,vy:-.7}
+
+];
+
+function setKey(k,v){keys[k]=v}
+
+document.querySelectorAll("button[data-key]").forEach(b=>{
+
+ const k=b.dataset.key;
+
+ b.addEventListener("pointerdown",e=>{e.preventDefault();setKey(k,true)});
+
+ ["pointerup","pointercancel","pointerleave"].forEach(ev=>
+
+ b.addEventListener(ev,()=>setKey(k,false)));
+
+});
+
+function keyName(e){
+
+ if(e.key==="ArrowUp"||e.key==="w")return "up";
+
+ if(e.key==="ArrowDown"||e.key==="s")return "down";
+
+ if(e.key==="ArrowLeft"||e.key==="a")return "left";
+
+ if(e.key==="ArrowRight"||e.key==="d")return "right";
+
+}
+
+window.addEventListener("keydown",e=>{let k=keyName(e);if(k){e.preventDefault();keys[k]=true}});
+
+window.addEventListener("keyup",e=>{let k=keyName(e);if(k)keys[k]=false});
+
+function circle(x,y,r,color){
+
+ ctx.fillStyle=color;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
+
+}
+
+function draw(){
+
+ ctx.fillStyle="#102d20";ctx.fillRect(0,0,600,420);
+
+ for(let i=0;i<22;i++){
+
+  ctx.fillStyle=i%2?"#163b27":"#193f2a";
+
+  ctx.beginPath();ctx.ellipse((i*113)%620,(i*71)%440,90,55,0,0,Math.PI*2);ctx.fill();
+
+ }
+
+ // Sentier vers le sanctuaire
+
+ ctx.strokeStyle="#766344";ctx.lineWidth=24;ctx.beginPath();
+
+ ctx.moveTo(300,210);ctx.quadraticCurveTo(430,220,530,360);ctx.stroke();
+
+ ctx.strokeStyle="#b29a67";ctx.lineWidth=2;ctx.stroke();
+
+ for(const t of trees){
+
+  ctx.fillStyle="#4a3525";ctx.fillRect(t.x-3,t.y,6,12);
+
+  circle(t.x,t.y,t.r,"#225735");
+
+  circle(t.x-4,t.y-4,t.r*.6,"#347747");
+
+ }
+
+ // Sanctuaire
+
+ circle(540,365,25,"#9c874d");circle(540,365,17,"#e4ce83");
+
+ ctx.fillStyle="#fff0ae";ctx.font="22px sans-serif";ctx.fillText("✦",529,373);
+
+ // Feux follets
+
+ for(const w of wisps){
+
+  ctx.shadowBlur=18;ctx.shadowColor="#9affff";
+
+  circle(w.x,w.y,7,"#b9ffff");
+
+  ctx.shadowBlur=0;circle(w.x,w.y,3,"#ffffff");
+
+ }
+
+ // Ombres
+
+ for(const e of enemies){
+
+  ctx.shadowBlur=12;ctx.shadowColor="#9b6bff";
+
+  circle(e.x,e.y,13,"#34214e");ctx.shadowBlur=0;
+
+  circle(e.x-4,e.y-2,2,"#ffb9ff");circle(e.x+4,e.y-2,2,"#ffb9ff");
+
+ }
+
+ // Joueur
+
+ ctx.shadowBlur=12;ctx.shadowColor="#fff2a0";
+
+ circle(player.x,player.y,player.r,"#f5e6a0");
+
+ ctx.shadowBlur=0;circle(player.x-3,player.y-2,2,"#ffffff");
+
+ if(won){
+
+  ctx.fillStyle="rgba(0,0,0,.7)";ctx.fillRect(40,140,520,130);
+
+  ctx.fillStyle="#fff2ad";ctx.font="bold 30px sans-serif";
+
+  ctx.fillText("FORÊT LIBÉRÉE !",150,195);
+
+  ctx.font="18px sans-serif";ctx.fillText("Tu as percé le secret des bois.",155,230);
+
+ }
+
+}
+
+function update(){
+
+ if(!won){
+
+  let dx=(keys.right?1:0)-(keys.left?1:0);
+
+  let dy=(keys.down?1:0)-(keys.up?1:0);
+
+  if(dx&&dy){dx*=.707;dy*=.707}
+
+  player.x=Math.max(12,Math.min(588,player.x+dx*player.speed));
+
+  player.y=Math.max(12,Math.min(408,player.y+dy*player.speed));
+
+  for(const e of enemies){
+
+   if(Math.hypot(player.x-e.x,player.y-e.y)<24){
+
+    message.textContent="Une ombre t'a surpris ! Évite-la !";
+
+    player.x=300;player.y=210;
+
+   }
+
+   e.x+=e.vx;e.y+=e.vy;
+
+   if(e.x<15||e.x>585)e.vx*=-1;
+
+   if(e.y<15||e.y>405)e.vy*=-1;
+
+  }
+
+  wisps=wisps.filter(w=>{
+
+   if(Math.hypot(player.x-w.x,player.y-w.y)<20){
+
+    count++;status.textContent="Feux follets : "+count+" / 7";
+
+    message.textContent="Un feu follet rejoint la lumière ! ✨";
+
+    return false;
+
+   }
+
+   return true;
+
+  });
+
+  if(count===7&&Math.hypot(player.x-540,player.y-365)<32){
+
+   won=true;message.textContent="Tu as sauvé Whispering Woods !";
+
+  }
+
+ }
+
+ draw();
+
+ requestAnimationFrame(update);
+
+}
+
+update();
+
+</script>
+
+</body>
+
+</html>
